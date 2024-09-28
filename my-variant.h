@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <stdexcept>
+#include <functional>
 
 namespace impl {
 template<size_t ind, typename... Types>
@@ -20,6 +21,19 @@ template<size_t ind, typename First, typename... Other>
 struct IthType<ind, First, Other...> {
     using type = typename IthType<ind - 1, Other...>::type;
 };
+
+template<typename Func, typename... Types>
+auto GetFunctionTable() {
+    std::array<std::function<std::invoke_result_t<Func, typename IthType<0, Types...>::type>(Func, std::byte*)>, sizeof...(Types)> ans;
+    [&ans] <size_t... Inds> (std::index_sequence<Inds...>) {
+        ([&ans] <size_t ind> (std::index_sequence<ind>) {
+            ans[ind] = [] (const Func &to_apply, std::byte *arg) {
+                return to_apply(reinterpret_cast<IthType<ind, Types...>&>(*arg));
+            };
+        } (std::index_sequence<Inds>()), ...);
+    } (std::make_index_sequence<sizeof...(Types)>());
+    return ans;
+}
 } // namespace impl
 
 
@@ -39,19 +53,12 @@ class Variant {
         return cur_type_ind_;
     }
     
-    void visit(const auto &f) {
-        static constexpr auto apply =
-        [] <size_t... Inds> (std::index_sequence<Inds...>, const auto &f, std::byte *storage, index_t cur_ind) {
-            ([] <size_t ind> (std::index_sequence<ind>, const auto &f, std::byte *storage, index_t cur_ind) {
-                if (ind == cur_ind) {
-                    f(reinterpret_cast<impl::IthType<ind, Types...>::type&>(*storage));
-                }
-            } (std::index_sequence<Inds>(), f, storage, cur_ind), ...);
-        };
+    auto visit(const auto &f) {
+        static const auto funtion_table = impl::GetFunctionTable<decltype(f), Types...>();
         if (cur_type_ind_ == npos) {
             throw std::logic_error("visit for empty variant");
         }
-        apply(std::make_index_sequence<sizeof...(Types)>(), f, storage_, cur_type_ind_);
+        return funtion_table[cur_type_ind_](f, storage_);
     }
 
 
@@ -73,9 +80,5 @@ class Variant {
             } (std::index_sequence<Inds>()), ...);
         } (std::make_index_sequence<sizeof...(Types)>());
         return ans;
-    }
-
-    static constexpr auto GetVtable() {
-        std::array<
     }
 };
