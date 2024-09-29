@@ -15,8 +15,8 @@ int main() {
     volatile unsigned no_optimize = 0;
     for (int _ : views::iota(0, 20)) {
         {
-            std::variant<ALL, std::string> va1(std::to_string(52));
-            std::variant<ALL, std::string> va2(std::to_string(52));
+            std::variant<int, std::string> va1(std::to_string(52));
+            std::variant<int, std::string> va2(std::to_string(52));
             auto beg_time = std::chrono::steady_clock::now();
             for (int i : std::views::iota(0, 10'000'000)) {
                 std::visit([&no_optimize](auto x, auto y) {
@@ -29,8 +29,8 @@ int main() {
                       << std::endl;
         }
         {
-            Variant<ALL, std::string> var(std::to_string(52));
-            Variant<ALL, std::string> var1(std::to_string(52));
+            Variant<int, std::string> var(std::to_string(52));
+            Variant<int, std::string> var1(std::to_string(52));
             auto beg_time = std::chrono::steady_clock::now();
             for (int i : std::views::iota(0, 10'000'000)) {
                 Visit([&no_optimize](auto x, auto y) {

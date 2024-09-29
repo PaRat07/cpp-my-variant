@@ -40,23 +40,6 @@ constexpr bool AllInvokeResultSame = AllInvokeResultSameImpl<Func, Types...>::va
 template<typename... Types>
 class Wrapper {};
 
-template<typename Func, typename InvokeResultType, typename ReapetedBytePtrWrapper, typename... Wrappers>
-struct FuncArrayImpl;
-
-template<typename Func, typename InvokeResultType, typename... ReapetedBytePtr, typename... TypesInFirstWrapper>
-struct FuncArrayImpl<Func, InvokeResultType, Wrapper<ReapetedBytePtr...>, Wrapper<TypesInFirstWrapper...>> {
-    using type = std::array<std::function<InvokeResultType(Func, ReapetedBytePtr...)>, sizeof...(TypesInFirstWrapper)>;
-};
-
-template<typename Func, typename InvokeResultType, typename... ReapetedBytePtr, typename... TypesInFirstWrapper, typename... OtherWrappers>
-struct FuncArrayImpl<Func, InvokeResultType, Wrapper<ReapetedBytePtr...>, Wrapper<TypesInFirstWrapper...>, OtherWrappers...> {
-    using type = std::array<typename FuncArrayImpl<Func, InvokeResultType, Wrapper<ReapetedBytePtr..., std::byte*>, OtherWrappers...>::type, sizeof...(TypesInFirstWrapper)>;
-};
-
-template<typename... Args>
-using FuncArray = typename FuncArrayImpl<Args...>::type;
-
-
 
 template<typename Func, typename WrapperOverTypesForCastTo, typename WrapperOverBytePtrs>
 consteval auto GetFunc() {
