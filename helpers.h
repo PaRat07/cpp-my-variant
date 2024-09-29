@@ -20,23 +20,6 @@ struct IthTypeImpl<ind, First, Other...> {
 template<size_t ind, typename... Types>
 using IthType = typename IthTypeImpl<ind, Types...>::value;
 
-
-template<typename Func, typename... Types>
-struct AllInvokeResultSameImpl;
-
-template<typename Func, typename Type>
-struct AllInvokeResultSameImpl<Func, Type> {
-    static inline constexpr bool value = true;
-};
-
-template<typename Func, typename First, typename Second, typename... Types>
-struct AllInvokeResultSameImpl<Func, First, Second, Types...> {
-    static inline constexpr bool value = std::is_same_v<std::invoke_result_t<Func, First>, std::invoke_result_t<Func, Second>> && AllInvokeResultSameImpl<Func, Second, Types...>::value;
-};
-
-template<typename Func, typename... Types>
-constexpr bool AllInvokeResultSame = AllInvokeResultSameImpl<Func, Types...>::value;
-
 template<typename... Types>
 class Wrapper {};
 
