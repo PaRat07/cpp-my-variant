@@ -3,63 +3,12 @@
 
 #pragma once
 
+#include "helpers.h"
+
 #include <algorithm>
 #include <cstdint>
 #include <stdexcept>
 #include <functional>
-
-namespace impl {
-template<size_t ind, typename... Types>
-struct IthTypeImpl;
-
-template<typename First, typename... Other>
-struct IthTypeImpl<0, First, Other...> {
-    using type = First;
-};
-
-template<size_t ind, typename First, typename... Other>
-struct IthTypeImpl<ind, First, Other...> {
-    using type = typename IthTypeImpl<ind - 1, Other...>::type;
-};
-
-template<size_t ind, typename... Types>
-using IthType = typename IthTypeImpl<ind, Types...>::value;
-
-
-template<typename Func, typename... Types>
-struct AllInvokeResultSameImpl;
-
-template<typename Func, typename Type>
-struct AllInvokeResultSameImpl<Func, Type> {
-    static inline constexpr bool value = true;
-};
-
-template<typename Func, typename First, typename Second, typename... Types>
-struct AllInvokeResultSameImpl<Func, First, Second, Types...> {
-    static inline constexpr bool value = std::is_same_v<std::invoke_result_t<Func, First>, std::invoke_result_t<Func, Second>> && AllInvokeResultSameImpl<Func, Second, Types...>::value;
-};
-
-template<typename Func, typename... Types>
-constexpr bool AllInvokeResultSame = AllInvokeResultSameImpl<Func, Types...>::value;
-
-
-template<typename Func, typename... Types>
-auto GetFunctionTable() {
-    static_assert(AllInvokeResultSame<Func, Types...>, "Variant::Visit requires the visitor to have the same return type for all alternatives of a variant");
-    std::array<std::function<std::invoke_result_t<Func, typename IthTypeImpl<0, Types...>::type>(Func, std::byte*)>, sizeof...(Types)> ans;
-    [&ans] <size_t... Inds> (std::index_sequence<Inds...>) {
-        ([&ans] <size_t ind> (std::index_sequence<ind>) {
-            ans[ind] = [] (const Func &to_apply, std::byte *arg) {
-                return to_apply(reinterpret_cast<IthTypeImpl<ind, Types...>&>(*arg));
-            };
-        } (std::index_sequence<Inds>()), ...);
-    } (std::make_index_sequence<sizeof...(Types)>());
-    return ans;
-}
-} // namespace impl
-
-
-//template<typename...
 
 template<typename... Types>
 class Variant {
@@ -83,7 +32,8 @@ class Variant {
         return funtion_table[cur_type_ind_](f, storage_);
     }
 
-
+    template<typename... Variants>
+    friend auto Visit(auto &&vis, Variants&&... vars);
 
  private:
     alignas(Types...) std::byte storage_[std::max({(sizeof(Types), ...)})];
@@ -104,3 +54,10 @@ class Variant {
         return ans;
     }
 };
+
+
+
+template<typename... Variants>
+auto Visit(auto &&vis, Variants &&... vars) {
+
+}
