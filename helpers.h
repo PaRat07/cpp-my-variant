@@ -56,30 +56,51 @@ struct FuncArrayImpl<Func, InvokeResultType, Wrapper<ReapetedBytePtr...>, Wrappe
 template<typename... Args>
 using FuncArray = typename FuncArrayImpl<Args...>::type;
 
-template<typename Func, typename... BytePtrs>
-auto GetFunctionTable() {
-    std::array ans;
-    [&ans] <size_t... Inds> (std::index_sequence<Inds...>) {
-        ([&ans] <size_t ind> (std::index_sequence<ind>) {
-            ans[ind] = [] (const Func &to_apply, std::byte *arg) {
-                return to_apply(reinterpret_cast<IthTypeImpl<ind, Types...>&>(*arg));
+
+
+template<typename Func, typename WrapperOverTypesForCastTo, typename WrapperOverBytePtrs>
+consteval auto GetFunc() {
+    return [] <typename... TypesForCastTo, typename... BytePtrs> (Wrapper<TypesForCastTo...>, Wrapper<BytePtrs...>) {
+        return +[] (const Func &f, BytePtrs... ptrs) {
+                return f(reinterpret_cast<TypesForCastTo&>(*ptrs)...);
             };
-        } (std::index_sequence<Inds>()), ...);
-    } (std::make_index_sequence<sizeof...(Types)>());
-    return ans;
+    } (WrapperOverTypesForCastTo(), WrapperOverBytePtrs());
+}
+
+template<
+    typename    Func,
+    typename    WrapperOverTypesForCastTo,
+    typename    WrapperOverBytePtrs,
+    typename    FirstWrapperOverVariantTypes,
+    typename... WrappersOverVariantsTypes
+>
+consteval auto GetFunctionTable() {
+    if constexpr (sizeof...(WrappersOverVariantsTypes) == 0) {
+        return
+            [] <
+                    typename... VariantTypes,
+                    typename... TypesForCastTo,
+                    typename... BytePtrs
+                > (Wrapper<VariantTypes...>, Wrapper<TypesForCastTo...>, Wrapper<BytePtrs...>) {
+                return std::array {
+                    GetFunc<Func, Wrapper<TypesForCastTo..., VariantTypes>, Wrapper<BytePtrs..., std::byte*>>()...
+                };
+            } (FirstWrapperOverVariantTypes(), WrapperOverTypesForCastTo(), WrapperOverBytePtrs());
+    } else {
+        return
+            [] <
+                    typename... CurVariantTypes,
+                    typename... TypesForCastTo,
+                    typename... BytePtrs,
+                    typename    WrapperOverFirstVariantTypes,
+                    typename... WrappersOverOtherVariantsTypes
+                > (Wrapper<CurVariantTypes...>, Wrapper<TypesForCastTo...>, Wrapper<BytePtrs...>, WrapperOverFirstVariantTypes, WrappersOverOtherVariantsTypes...) {
+                return std::array{
+                    GetFunctionTable<Func, Wrapper<TypesForCastTo..., CurVariantTypes>, Wrapper<BytePtrs..., std::byte*>, WrapperOverFirstVariantTypes, WrappersOverOtherVariantsTypes...>()...
+                };
+            } (FirstWrapperOverVariantTypes(), WrapperOverTypesForCastTo(), WrapperOverBytePtrs(), (WrappersOverVariantsTypes(), ...));
+    }
 }
 
 
-template<typename Func, typename... WrapperT>
-auto GetFunctionTable() {
-    std::array<std::function<std::invoke_result_t<Func, typename IthTypeImpl<0, Types...>::type>(Func, std::byte*)>, sizeof...(Types)> ans;
-    [&ans] <size_t... Inds> (std::index_sequence<Inds...>) {
-        ([&ans] <size_t ind> (std::index_sequence<ind>) {
-            ans[ind] = [] (const Func &to_apply, std::byte *arg) {
-                return to_apply(reinterpret_cast<IthTypeImpl<ind, Types...>&>(*arg));
-            };
-        } (std::index_sequence<Inds>()), ...);
-    } (std::make_index_sequence<sizeof...(Types)>());
-    return ans;
-}
 } // namespace impl

@@ -1,202 +1,45 @@
+Compilation time:\
+Visit - 27s      \
+std::visit - 45s \
+                 \
 Result of running(to understand the speed of the solution\
-std::Visit: 40\
-Visit: 16\
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 44\
-Visit: 18     \
-std::Visit: 49\
-Visit: 18     \
-std::Visit: 42\
-Visit: 16     \
-std::Visit: 43\
-Visit: 16     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 40\
-Visit: 16     \
-std::Visit: 41\
-Visit: 15     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 41\
-Visit: 15     \
-std::Visit: 40\
-Visit: 16     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 48\
-Visit: 17     \
-std::Visit: 42\
-Visit: 16     \
-std::Visit: 42\
-Visit: 16     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 42\
-Visit: 16     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 40\
-Visit: 16     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 16     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 41\
-Visit: 15     \
-std::Visit: 40\
-Visit: 16     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 16     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 41\
-Visit: 15     \
-std::Visit: 41\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 41\
-Visit: 15     \
-std::Visit: 40\
-Visit: 16     \
-std::Visit: 40\
-Visit: 16     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 16     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 42\
-Visit: 16     \
-std::Visit: 40\
-Visit: 16     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 41\
-Visit: 16     \
-std::Visit: 40\
-Visit: 16     \
-std::Visit: 41\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 16     \
-std::Visit: 41\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 39\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 41\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-std::Visit: 40\
-Visit: 15     \
-              \
+std::visit: 83\
+Visit: 78     \
+std::visit: 78\
+Visit: 86     \
+std::visit: 72\
+Visit: 71     \
+std::visit: 74\
+Visit: 70     \
+std::visit: 73\
+Visit: 87     \
+std::visit: 73\
+Visit: 69     \
+std::visit: 72\
+Visit: 87     \
+std::visit: 82\
+Visit: 70     \
+std::visit: 72\
+Visit: 70     \
+std::visit: 72\
+Visit: 69     \
+std::visit: 72\
+Visit: 69     \
+std::visit: 73\
+Visit: 69     \
+std::visit: 78\
+Visit: 69     \
+std::visit: 72\
+Visit: 73     \
+std::visit: 72\
+Visit: 69     \
+std::visit: 72\
+Visit: 69     \
+std::visit: 72\
+Visit: 69     \
+std::visit: 71\
+Visit: 69     \
+std::visit: 71\
+Visit: 69     \
+std::visit: 71\
+Visit: 68     \
