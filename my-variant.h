@@ -10,25 +10,47 @@
 
 namespace impl {
 template<size_t ind, typename... Types>
-struct IthType;
+struct IthTypeImpl;
 
 template<typename First, typename... Other>
-struct IthType<0, First, Other...> {
+struct IthTypeImpl<0, First, Other...> {
     using type = First;
 };
 
 template<size_t ind, typename First, typename... Other>
-struct IthType<ind, First, Other...> {
-    using type = typename IthType<ind - 1, Other...>::type;
+struct IthTypeImpl<ind, First, Other...> {
+    using type = typename IthTypeImpl<ind - 1, Other...>::type;
+};
+
+template<size_t ind, typename... Types>
+using IthType = typename IthTypeImpl<ind, Types...>::value;
+
+
+template<typename Func, typename... Types>
+struct AllInvokeResultSameImpl;
+
+template<typename Func, typename Type>
+struct AllInvokeResultSameImpl<Func, Type> {
+    static inline constexpr bool value = true;
+};
+
+template<typename Func, typename First, typename Second, typename... Types>
+struct AllInvokeResultSameImpl<Func, First, Second, Types...> {
+    static inline constexpr bool value = std::is_same_v<std::invoke_result_t<Func, First>, std::invoke_result_t<Func, Second>> && AllInvokeResultSameImpl<Func, Second, Types...>::value;
 };
 
 template<typename Func, typename... Types>
+constexpr bool AllInvokeResultSame = AllInvokeResultSameImpl<Func, Types...>::value;
+
+
+template<typename Func, typename... Types>
 auto GetFunctionTable() {
-    std::array<std::function<std::invoke_result_t<Func, typename IthType<0, Types...>::type>(Func, std::byte*)>, sizeof...(Types)> ans;
+    static_assert(AllInvokeResultSame<Func, Types...>, "Variant::Visit requires the visitor to have the same return type for all alternatives of a variant");
+    std::array<std::function<std::invoke_result_t<Func, typename IthTypeImpl<0, Types...>::type>(Func, std::byte*)>, sizeof...(Types)> ans;
     [&ans] <size_t... Inds> (std::index_sequence<Inds...>) {
         ([&ans] <size_t ind> (std::index_sequence<ind>) {
             ans[ind] = [] (const Func &to_apply, std::byte *arg) {
-                return to_apply(reinterpret_cast<IthType<ind, Types...>&>(*arg));
+                return to_apply(reinterpret_cast<IthTypeImpl<ind, Types...>&>(*arg));
             };
         } (std::index_sequence<Inds>()), ...);
     } (std::make_index_sequence<sizeof...(Types)>());
@@ -49,14 +71,14 @@ class Variant {
         cur_type_ind_ = FindType<T>();
     }
 
-    index_t index() const {
+    index_t Index() const {
         return cur_type_ind_;
     }
     
-    auto visit(const auto &f) {
+    auto Visit(const auto &f) {
         static const auto funtion_table = impl::GetFunctionTable<decltype(f), Types...>();
         if (cur_type_ind_ == npos) {
-            throw std::logic_error("visit for empty variant");
+            throw std::logic_error("Visit for empty variant");
         }
         return funtion_table[cur_type_ind_](f, storage_);
     }
@@ -74,7 +96,7 @@ class Variant {
         index_t ans = npos;
         [&ans] <size_t... Inds> (std::index_sequence<Inds...>) {
             ([&ans] <size_t Ind> (std::index_sequence<Ind>) {
-                if constexpr (std::is_same_v<std::decay_t<ToSearch>, std::decay_t<typename impl::IthType<Ind, Types...>::type>>) {
+                if constexpr (std::is_same_v<std::decay_t<ToSearch>, std::decay_t<typename impl::IthTypeImpl<Ind, Types...>::type>>) {
                     ans = Ind;
                 }
             } (std::index_sequence<Inds>()), ...);

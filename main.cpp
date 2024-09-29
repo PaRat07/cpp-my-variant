@@ -18,12 +18,12 @@ int main() {
             std::variant<ALL, std::string> va1(std::to_string(52));
             auto beg_time = std::chrono::steady_clock::now();
             for (int i : std::views::iota(0, 10'000'000)) {
-                unsigned num = std::visit([&no_optimize](auto x) {
-                    return no_optimize = no_optimize + 1;
+                std::visit([&no_optimize](auto x) {
+                    no_optimize = 0;
                 }, va1);
             }
             auto end_time = std::chrono::steady_clock::now();
-            std::cout << "std::visit: "
+            std::cout << "std::Visit: "
                       << std::chrono::duration_cast<std::chrono::milliseconds>(end_time - beg_time).count()
                       << std::endl;
         }
@@ -31,8 +31,8 @@ int main() {
             Variant<ALL, std::string> var(std::to_string(52));
             auto beg_time = std::chrono::steady_clock::now();
             for (int i : std::views::iota(0, 10'000'000)) {
-                unsigned num = var.visit([&no_optimize](auto x) {
-                    return no_optimize = no_optimize + 1;
+                var.Visit([&no_optimize](auto x) {
+                    no_optimize = 1;
                 });
             }
             auto end_time = std::chrono::steady_clock::now();
