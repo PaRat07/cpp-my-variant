@@ -12,11 +12,9 @@
 
 struct EmptyT {};
 
-template<typename... Ts>
-constexpr auto kIsTrivCopy = std::array { std::is_trivially_copyable_v<Ts>... };
 
-template<typename... Ts>
-constexpr auto kIsTrivDestr = std::array { std::is_trivially_destructible_v<Ts>... };
+template<template<typename> typename Op, typename... Ts>
+constexpr bool kCanAllDoTrivial = ((std::is_trivially_copyable_v<Ts> && Op<Ts>::value) && ...);
 
 template <bool IsTrivDestr, typename... Ts>
 union VariadicUnion;
