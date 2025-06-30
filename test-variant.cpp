@@ -21,20 +21,18 @@ using namespace std;
 //   std::variant<Ts...>(std::in_place_type<Ts>)...
 // };
 //
-// template<class... Ts>
-// struct overloaded : Ts... { using Ts::operator()...; };
+template<class... Ts>
+struct overloaded : Ts... { using Ts::operator()...; };
 
-// consteval void TestTrivial() {
-//     static_assert(std::is_trivially_copyable_v<Variant<int, float, double>>);
-// }
+consteval void TestTrivial() {
+    static_assert(std::is_trivially_copyable_v<Variant<int, float, double>>);
+}
 
-constexpr int f() {
-    int x;
-    std::cin >> x;
-    return x;
+consteval void TestLogic() {
+
 }
 
 
 int main() {
-    int x = f();
+    TestTrivial();
 }

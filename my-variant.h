@@ -205,12 +205,12 @@ decltype(auto) Visit(auto &&vis, auto &&...var) {
   if ((var.ValuelessByException() || ...)) {
     throw std::bad_variant_access();
   }
-  static constexpr auto arr = GetArrOfIndsArrs<std::remove_cvref_t<decltype(vis)>...>();
+  static constexpr auto arr = GetArrOfIndsArrs<std::remove_cvref_t<decltype(var)>...>();
   std::array<size_t, sizeof...(var)> inds = { var.index()... };
   return [&inds, &var..., &vis] <size_t... Inds> (std::index_sequence<Inds...>) {
     ([&inds, &var..., &vis] <size_t Ind> (std::integral_constant<size_t, Ind>) {
       if (inds == arr[Ind]) {
-        return [&var..., &vis] <size_t... VarInds> (std::index_sequence<VarInds>) {
+        return [&var..., &vis] <size_t... VarInds> (std::index_sequence<VarInds...>) {
           return vis(var.template Get<arr[Inds][VarInds]>()...);
         } (std::make_index_sequence<sizeof...(var)>{});
       }
@@ -220,8 +220,8 @@ decltype(auto) Visit(auto &&vis, auto &&...var) {
 
 template <typename... Types>
 constexpr Variant<Types...>::Variant(const Variant &other)
-    noexcept((std::is_nothrow_copy_constructible_v<Types> && ...))
-    requires(kIsAll<std::is_copy_constructible> && !kIsAll<std::is_trivially_copy_constructible>)
+    noexcept (kIsAll<std::is_nothrow_copy_constructible>)
+    requires (kIsAll<std::is_copy_constructible> && !kIsAll<std::is_trivially_copy_constructible>)
   : Variant(std::in_place_index<sizeof...(Types)>)
 {
   cur_type_ind_ = npos;
