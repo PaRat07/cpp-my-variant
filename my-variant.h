@@ -107,16 +107,19 @@ private:
   }
 
 public:
+  template<template<typename> typename Trait>
+  static constexpr bool kIsAll = (Trait<Types>::value && ...);
+
   template<size_t TInd>
-  constexpr Variant(std::in_place_index_t<TInd>, auto&&... args)
+  constexpr Variant(std::in_place_index_t<TInd>, auto&&... args) noexcept(std::is_nothrow_constructible_v<Types...[TInd], decltype(args)...>)
     : data_(std::in_place_index<TInd>, std::forward<decltype(args)>(args)...),
       cur_type_ind_(TInd) {}
 
   template<typename T>
-  constexpr Variant(std::type_identity<T>, auto&&... args)
+  constexpr Variant(std::type_identity<T>, auto&&... args) noexcept(std::is_nothrow_constructible_v<T, decltype(args)...>)
     : Variant(std::in_place_index<FindType<T>()>, std::forward<decltype(args)>(args)...) {}
 
-  constexpr Variant() : Variant(std::in_place_index<sizeof...(Types)>) {}
+  constexpr Variant() : Variant(std::in_place_index<0>) {}
 
   constexpr index_t index() const { return cur_type_ind_; }
 
@@ -126,36 +129,51 @@ public:
   }
 
   template<typename T>
-  constexpr void Emplace(auto&&... args) {
+  constexpr T &Emplace(auto&&... args) noexcept(noexcept(Destroy()) && std::is_nothrow_constructible_v<T, decltype(args)...>) {
     Destroy();
     ::new (&data_.template Get<T>()) T(std::forward<decltype(args)>(args)...);
     cur_type_ind_ = FindType<T>();
+    return Get<T>();
   }
 
   constexpr Variant(const Variant &)
-    requires (kNeedTrivial<std::is_copy_constructible, Types...>) = default;
+    noexcept (kIsAll<std::is_nothrow_copy_constructible>)
+    requires (kIsAll<std::is_trivially_copy_constructible>) = default;
 
   constexpr Variant(const Variant &)
-    requires(kNeedNonTrivial<std::is_copy_constructible, Types...>);
+    noexcept (kIsAll<std::is_nothrow_copy_constructible>)
+    requires (kIsAll<std::is_copy_constructible> && !kIsAll<std::is_trivially_copy_constructible>);
 
   constexpr Variant(Variant &&)
-    requires(kNeedTrivial<std::is_move_constructible, Types...>) = default;
+    noexcept (kIsAll<std::is_nothrow_move_constructible>)
+    requires (kIsAll<std::is_trivially_move_constructible>) = default;
 
   constexpr Variant(Variant &&)
-    requires(kNeedNonTrivial<std::is_move_constructible, Types...>);
+    noexcept (kIsAll<std::is_nothrow_move_constructible>)
+    requires (kIsAll<std::is_move_constructible> && !kIsAll<std::is_trivially_move_constructible>);
 
   constexpr Variant &operator=(const Variant&)
-    requires (kNeedTrivial<std::is_copy_assignable, Types...>) = default;
+    noexcept (kIsAll<std::is_nothrow_copy_assignable>)
+    requires (kIsAll<std::is_trivially_copy_assignable>) = default;
 
   constexpr Variant &operator=(const Variant &)
-    requires(kNeedNonTrivial<std::is_copy_assignable, Types...>);
+    noexcept (kIsAll<std::is_nothrow_copy_assignable>)
+    requires (kIsAll<std::is_copy_assignable> && !kIsAll<std::is_trivially_copy_assignable>);
+
+  constexpr Variant &operator=(Variant&&)
+    noexcept (kIsAll<std::is_nothrow_move_assignable>)
+    requires (kIsAll<std::is_trivially_move_assignable>) = default;
+
+  constexpr Variant &operator=(Variant&&)
+    noexcept (kIsAll<std::is_nothrow_move_assignable>)
+    requires (kIsAll<std::is_move_assignable> && !kIsAll<std::is_trivially_move_assignable>);
 
   constexpr bool ValuelessByException() const noexcept {
     return index() == npos;
   }
 
   ~Variant()
-    requires(!std::is_trivially_destructible_v<Types> || ...) {
+    requires(!kIsAll<std::is_trivially_destructible>) {
     Destroy();
   }
 
@@ -163,7 +181,7 @@ public:
       std::conditional_t<(std::__libcpp_is_trivially_relocatable<Types>::value && ...), Variant, void>;
 
   ~Variant()
-    requires(std::is_trivially_destructible_v<Types> && ...) = default;
+    requires(kIsAll<std::is_trivially_destructible>) = default;
 
 private:
   VariadicUnion<(std::is_trivially_destructible_v<Types> && ...), Types..., EmptyT> data_;
@@ -212,7 +230,8 @@ decltype(auto) Visit(auto &&vis, auto &&...var) {
 
 template <typename... Types>
 constexpr Variant<Types...>::Variant(const Variant &other)
-  requires(kNeedNonTrivial<std::is_copy_constructible, Types...>)
+    noexcept((std::is_nothrow_copy_constructible_v<Types> && ...))
+    requires(kIsAll<std::is_copy_constructible> && !kIsAll<std::is_trivially_copy_constructible>)
   : Variant(std::in_place_index<sizeof...(Types)>)
 {
   cur_type_ind_ = npos;
@@ -225,7 +244,8 @@ constexpr Variant<Types...>::Variant(const Variant &other)
 
 template <typename... Types>
 constexpr Variant<Types...>::Variant(Variant &&other)
-  requires(kNeedNonTrivial<std::is_move_constructible, Types...>)
+    noexcept (kIsAll<std::is_nothrow_move_constructible>)
+    requires (kIsAll<std::is_move_constructible> && !kIsAll<std::is_trivially_move_constructible>)
   : Variant(std::in_place_index<sizeof...(Types)>)
 {
   cur_type_ind_ = npos;
@@ -238,7 +258,8 @@ constexpr Variant<Types...>::Variant(Variant &&other)
 
 template <typename... Types>
 constexpr Variant<Types...> &Variant<Types...>::operator=(const Variant &other)
-  requires(kNeedNonTrivial<std::is_copy_assignable, Types...>) {
+    noexcept (kIsAll<std::is_nothrow_copy_assignable>)
+    requires(kIsAll<std::is_copy_assignable> && !kIsAll<std::is_trivially_copy_assignable>) {
   if (other.ValuelessByException()) {
     Destroy();
     return *this;;
@@ -252,6 +273,28 @@ constexpr Variant<Types...> &Variant<Types...>::operator=(const Variant &other)
     Visit([this] <typename T> (const T &val) noexcept(std::is_nothrow_copy_constructible_v<T>) {
       ::new (&data_.template Get<T>()) T(std::forward<decltype(val)>(val));
     }, other);
+    cur_type_ind_ = other.index();
+  }
+  return *this;
+}
+
+template <typename... Types>
+constexpr Variant<Types...> &Variant<Types...>::operator=(Variant &&other)
+    noexcept (kIsAll<std::is_nothrow_move_assignable>)
+    requires (kIsAll<std::is_move_assignable> && !kIsAll<std::is_trivially_move_assignable>) {
+  if (other.ValuelessByException()) {
+    Destroy();
+    return *this;
+  }
+  if (index() == other.index()) {
+    Visit([this] <typename T> (T &&val) noexcept(std::is_nothrow_copy_constructible_v<T>) {
+      data_.template Get<T>() = val;
+    }, std::move(other));
+  } else {
+    Destroy();
+    Visit([this] <typename T> (T &&val) noexcept(std::is_nothrow_copy_constructible_v<T>) {
+      ::new (&data_.template Get<T>()) T(std::forward<decltype(val)>(val));
+    }, std::move(other));
     cur_type_ind_ = other.index();
   }
   return *this;

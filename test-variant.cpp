@@ -34,6 +34,7 @@ constexpr int f() {
     return x;
 }
 
+
 int main() {
     int x = f();
 }
