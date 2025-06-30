@@ -19,6 +19,7 @@ set(CMAKE_CXX_STANDARD 26)
 #FetchContent_MakeAvailable(googlebenchmark)
 
 
-add_executable(my_variant main.cpp)
+add_executable(test-variant test-variant.cpp)
+add_executable(bech-visit bench-visit.cpp)
 
 #target_link_libraries(my_variant benchmark::benchmark)
