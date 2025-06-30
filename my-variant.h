@@ -12,16 +12,6 @@
 #include <exception>
 #include <variant>
 
-
-struct EmptyT {};
-
-
-template<template<typename> typename Op, typename... Ts>
-constexpr bool kNeedTrivial = ((std::is_trivially_copyable_v<Ts> && Op<Ts>::value) && ...);
-
-template<template<typename> typename Op, typename... Ts>
-constexpr bool kNeedNonTrivial = ((!std::is_trivially_copyable_v<Ts> && Op<Ts>::value) && ...);
-
 template <bool IsTrivDestr, typename... Ts>
 union VariadicUnion;
 
@@ -184,7 +174,7 @@ public:
     requires(kIsAll<std::is_trivially_destructible>) = default;
 
 private:
-  VariadicUnion<(std::is_trivially_destructible_v<Types> && ...), Types..., EmptyT> data_;
+  VariadicUnion<(std::is_trivially_destructible_v<Types> && ...), Types...> data_;
 
   index_t cur_type_ind_ = npos;
 
