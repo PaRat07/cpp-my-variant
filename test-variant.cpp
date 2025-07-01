@@ -28,6 +28,14 @@ consteval void TestTrivial() {
     static_assert(std::is_trivially_copyable_v<my::Variant<int, float, double>>);
 }
 
+consteval void TestVisit() {
+    Visit([] (auto &&val) {
+        if (!std::is_same_v<decltype(val), int&&>) {
+            throw std::logic_error(__PRETTY_FUNCTION__);
+        }
+    }, my::Variant<int>{});
+}
+
 consteval void TestLogic() {
 
 }
@@ -37,8 +45,6 @@ namespace test {
 }
 
 int main() {
-    std::variant<int>::swap()
-    test::T obj;
-    swap(obj, obj);
+    TestVisit();
     TestTrivial();
 }

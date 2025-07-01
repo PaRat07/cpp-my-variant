@@ -4,15 +4,18 @@
 
 #pragma once
 
+#include "my-variant.h"
+
 #include <algorithm>
 #include <cstdint>
+#include <exception>
 #include <functional>
 #include <stdexcept>
 #include <utility>
-#include <exception>
 #include <variant>
 
-
+#define fwd(...) std::forward<decltype(__VA_ARGS__)>(__VA_ARGS__)
+// #define PRINT_TYPE(...) static_assert((std::type_identity<decltype(__VA_ARGS__)>{}, false))
 namespace my {
 template <bool IsTrivDestr, typename... Ts>
 union VariadicUnion;
@@ -21,7 +24,7 @@ template <bool IsTrivDestr, typename T>
 union VariadicUnion<IsTrivDestr, T> {
   T data_;
 
-  VariadicUnion(std::in_place_index_t<0>, auto&&... args)
+  constexpr VariadicUnion(std::in_place_index_t<0>, auto&&... args)
     : data_(std::forward<decltype(args)>(args)...) {
   }
 
@@ -44,11 +47,11 @@ union VariadicUnion<IsTrivDestr, T, Ts...> {
   VariadicUnion<IsTrivDestr, Ts...> other_;
 
   template<size_t kTInd>
-  VariadicUnion(std::in_place_index_t<kTInd>, auto&&... args)
+  constexpr VariadicUnion(std::in_place_index_t<kTInd>, auto&&... args)
     : other_(std::in_place_index_t<kTInd - 1>{}, std::forward<decltype(args)>(args)...){
   }
 
-  VariadicUnion(std::in_place_index_t<0>, auto&&... args)
+  constexpr VariadicUnion(std::in_place_index_t<0>, auto&&... args)
     : data_(std::forward<decltype(args)>(args)...) {
   }
 
@@ -61,7 +64,7 @@ union VariadicUnion<IsTrivDestr, T, Ts...> {
     if constexpr (std::is_same_v<U, T>) {
       return std::forward_like<decltype(self)>(*std::launder(&self.data_));
     } else {
-      return self.other_.template Get<U>();
+      return fwd(self).other_.template Get<U>();
     }
   }
 };
@@ -117,7 +120,7 @@ public:
 
   template <typename T>
   constexpr auto &&Get(this auto &&self) {
-    return self.data_.template Get<T>();
+    return fwd(self).data_.template Get<T>();
   }
 
   template<typename T>
@@ -183,6 +186,14 @@ private:
   constexpr void Destroy() noexcept((std::is_nothrow_destructible_v<Types> && ...));
 };
 
+template<size_t Ind, typename T>
+using VariantAlternative = typename decltype([] <size_t CurNeedInd, typename SepT, typename... Ts> (this auto self, std::integral_constant<size_t, CurNeedInd>, std::type_identity<Variant<SepT, Ts...>>) {
+  if constexpr (Ind == 0) {
+    return std::type_identity<SepT>{};
+  } else {
+    return std::type_identity<typename decltype(self(std::integral_constant<size_t, Ind - 1>{}, std::type_identity<Variant<Ts...>>{}))::type>{};
+  }
+} (std::integral_constant<size_t, Ind>{}, std::type_identity<T>{}))::type;
 
 template<typename T>
 constexpr size_t VariantSz = [] <typename... Ts> (std::type_identity<Variant<Ts...>>) { return sizeof...(Ts); } (std::type_identity<T>{});
@@ -190,7 +201,7 @@ constexpr size_t VariantSz = [] <typename... Ts> (std::type_identity<Variant<Ts.
 template<typename... Ts>
 consteval std::array<std::array<size_t, sizeof...(Ts)>, (VariantSz<Ts> * ...)>  GetArrOfIndsArrs() {
   std::array<std::array<size_t, sizeof...(Ts)>, (VariantSz<Ts> * ...)> ans;
-  static constexpr std::array<size_t, sizeof...(Ts)> szs;
+  static constexpr std::array<size_t, sizeof...(Ts)> szs{ VariantSz<Ts>... };
   std::ranges::fill(ans[0], 0);
   for (size_t cur_ind = 1; cur_ind < szs.size(); ++cur_ind) {
     ans[cur_ind] = ans[cur_ind - 1];
@@ -203,21 +214,21 @@ consteval std::array<std::array<size_t, sizeof...(Ts)>, (VariantSz<Ts> * ...)>  
   return ans;
 }
 
-decltype(auto) Visit(auto &&vis, auto &&...var) {
+constexpr decltype(auto) Visit(auto &&vis, auto &&...var) {
   if ((var.ValuelessByException() || ...)) {
     throw std::bad_variant_access();
   }
-  static constexpr auto arr = GetArrOfIndsArrs<std::remove_cvref_t<decltype(var)>...>();
+  static constexpr auto case_arr = GetArrOfIndsArrs<std::remove_cvref_t<decltype(var)>...>();
   std::array<size_t, sizeof...(var)> inds = { var.index()... };
-  return [&inds, &var..., &vis] <size_t... Inds> (std::index_sequence<Inds...>) {
-    ([&inds, &var..., &vis] <size_t Ind> (std::integral_constant<size_t, Ind>) {
-      if (inds == arr[Ind]) {
-        return [&var..., &vis] <size_t... VarInds> (std::index_sequence<VarInds...>) {
-          return vis(var.template Get<arr[Inds][VarInds]>()...);
-        } (std::make_index_sequence<sizeof...(var)>{});
+  return [] <size_t... Inds> (std::index_sequence<Inds...>, auto &inds, auto &&vis, auto&&... var) static {
+    ([] <size_t Ind> (std::integral_constant<size_t, Ind>, auto &inds, auto &&vis, auto&&... var) static {
+      if (inds == case_arr[Ind]) {
+        return [] <size_t... VarInds> (std::index_sequence<VarInds...>, auto &&vis, auto&&... var) static {
+          return vis(fwd(var).template Get<VariantAlternative<case_arr[Inds][VarInds], std::remove_cvref_t<decltype(var)>>>()...);
+        } (std::make_index_sequence<sizeof...(var)>{}, fwd(vis), fwd(var)...);
       }
-    } (std::integral_constant<size_t, Inds>{}), ...);
-  } (std::make_index_sequence<arr.size()>{});
+    } (std::integral_constant<size_t, Inds>{}, inds, fwd(vis), fwd(var)...), ...);
+  } (std::make_index_sequence<case_arr.size()>{}, inds, fwd(vis), fwd(var)...);
 }
 
 template <typename... Types>
@@ -314,8 +325,8 @@ constexpr size_t VariantNpos = T::npos;
 
 template<typename... Ts>
 void swap(Variant<Ts...> &a, Variant<Ts...> &b)
-    noexcept (Variant<Ts...>::kIsAll<std::is_nothrow_swappable> && Variant<Ts...>::kIsAll<std::is_trivially_move_constructible>)
-    requires (Variant<Ts...>::kIsAll<std::is_move_constructible> && Variant<Ts...>::kIsAll<std::is_swappable>)
+    noexcept (((std::is_nothrow_swappable_v<Ts> && std::is_trivially_move_constructible_v<Ts>) && ...))
+    requires (((std::is_move_constructible_v<Ts> && std::is_swappable_v<Ts>) && ...))
 {
   if (a.ValuelessByException() && b.ValuelessByException()) {
 
@@ -333,14 +344,15 @@ void swap(Variant<Ts...> &a, Variant<Ts...> &b)
 } // namespace my
 
 namespace std {
-  template<typename... Ts, class = std::tuple<std::hash<std::remove_const_t<Ts>>...> /* I could to it with requires, but this way it's shorted */>
-  struct hash<my::Variant<Ts...>> {
-    static constexpr size_t operator() (const my::Variant<Ts...> &v) noexcept {
-      if (v.ValuelessByException()) {
-        return 0;
-      }
-      return v.index() + 1 + my::Visit([] (auto &&val) { return std::hash<std::remove_cvref_t<decltype(val)>>{}(val); }, v) * (sizeof...(Ts) + 1);
+template<typename... Ts> requires ((requires { std::hash<std::remove_const_t<Ts>>{}; } && ...))
+struct hash<my::Variant<Ts...>> {
+  static constexpr size_t operator() (const my::Variant<Ts...> &v) noexcept {
+    if (v.ValuelessByException()) {
+      return 0;
     }
-  };
+    return v.index() + 1 + my::Visit([] (auto &&val) { return std::hash<std::remove_cvref_t<decltype(val)>>{}(val); }, v) * (sizeof...(Ts) + 1);
+  }
+};
 }
 
+#undef fwd
