@@ -12,6 +12,8 @@
 #include <exception>
 #include <variant>
 
+
+namespace my {
 template <bool IsTrivDestr, typename... Ts>
 union VariadicUnion;
 
@@ -81,9 +83,9 @@ class Variant {
 public:
   using index_t = size_t;
 
-private:
   static constexpr index_t npos = static_cast<index_t>(-1);
 
+private:
   template <typename T> static constexpr index_t FindType() {
     index_t ans = npos;
     index_t cur_ind = 0;
@@ -165,7 +167,7 @@ public:
   ~Variant()
     requires(!kIsAll<std::is_trivially_destructible>) {
     Destroy();
-  }
+    }
 
   using __trivially_relocatable _LIBCPP_NODEBUG =
       std::conditional_t<(std::__libcpp_is_trivially_relocatable<Types>::value && ...), Variant, void>;
@@ -266,7 +268,7 @@ constexpr Variant<Types...> &Variant<Types...>::operator=(const Variant &other)
     cur_type_ind_ = other.index();
   }
   return *this;
-}
+    }
 
 template <typename... Types>
 constexpr Variant<Types...> &Variant<Types...>::operator=(Variant &&other)
@@ -301,3 +303,44 @@ constexpr void Variant<Types...>::Destroy() noexcept((std::is_nothrow_destructib
     cur_type_ind_ = npos;
   }
 }
+
+template<typename T>
+constexpr size_t VariantSize = [] <typename... Ts> (std::type_identity<Variant<Ts...>>) {
+  return sizeof...(Ts);
+} (std::type_identity<T>{});
+
+template<typename T>
+constexpr size_t VariantNpos = T::npos;
+
+template<typename... Ts>
+void swap(Variant<Ts...> &a, Variant<Ts...> &b)
+    noexcept (Variant<Ts...>::kIsAll<std::is_nothrow_swappable> && Variant<Ts...>::kIsAll<std::is_trivially_move_constructible>)
+    requires (Variant<Ts...>::kIsAll<std::is_move_constructible> && Variant<Ts...>::kIsAll<std::is_swappable>)
+{
+  if (a.ValuelessByException() && b.ValuelessByException()) {
+
+  } else if (a.index() == b.index()) {
+    Visit([&b] <class T> (T &a_val) mutable {
+      auto &b_val = b.template Get<T>();
+      std::iter_swap(&a_val, &b_val);
+    }, a);
+  } else {
+    auto c = std::move(a);
+    a = std::move(b);
+    b = std::move(c);
+  }
+}
+} // namespace my
+
+namespace std {
+  template<typename... Ts, class = std::tuple<std::hash<std::remove_const_t<Ts>>...> /* I could to it with requires, but this way it's shorted */>
+  struct hash<my::Variant<Ts...>> {
+    static constexpr size_t operator() (const my::Variant<Ts...> &v) noexcept {
+      if (v.ValuelessByException()) {
+        return 0;
+      }
+      return v.index() + 1 + my::Visit([] (auto &&val) { return std::hash<std::remove_cvref_t<decltype(val)>>{}(val); }, v) * (sizeof...(Ts) + 1);
+    }
+  };
+}
+

@@ -25,14 +25,20 @@ template<class... Ts>
 struct overloaded : Ts... { using Ts::operator()...; };
 
 consteval void TestTrivial() {
-    static_assert(std::is_trivially_copyable_v<Variant<int, float, double>>);
+    static_assert(std::is_trivially_copyable_v<my::Variant<int, float, double>>);
 }
 
 consteval void TestLogic() {
 
 }
-
+namespace test {
+    struct T{};
+    void swap(T&, T&);
+}
 
 int main() {
+    std::variant<int>::swap()
+    test::T obj;
+    swap(obj, obj);
     TestTrivial();
 }
