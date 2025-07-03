@@ -15,6 +15,7 @@
 #include <variant>
 #include <utility>
 #include <tuple>
+#include <cstddef>
 
 namespace rollbear
 {

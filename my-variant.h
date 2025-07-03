@@ -69,17 +69,14 @@ union VariadicUnion<IsTrivDestr, T, Ts...> {
   }
 };
 
-template<typename Search, typename... Arr>
-consteval size_t FindT() {
-  size_t ans;
-  size_t cur_ind = 0;
-  ([&ans, &cur_ind] <typename T> (std::type_identity<T>) {
-    if constexpr (std::is_same_v<Search, T>) {
-      ans = cur_ind;
-    }
-    ++cur_ind;
-  } (std::type_identity<Arr>{}), ...);
-}
+template<size_t Ind, typename... Ts>
+struct IthType;
+
+template<typename Need, typename... Other>
+struct IthType<0, Need, Other...> : std::type_identity<Need> {};
+
+template<size_t Ind, typename Sep, typename... Other>
+struct IthType<Ind, Sep, Other...> : IthType<Ind - 1, Other...> {};
 
 template <typename... Types>
 class Variant {
@@ -101,12 +98,16 @@ private:
     return ans;
   }
 
+
+  template<size_t TInd>
+  using IthT = typename IthType<TInd, Types...>::type;
+
 public:
   template<template<typename> typename Trait>
   static constexpr bool kIsAll = (Trait<Types>::value && ...);
 
   template<size_t TInd>
-  constexpr Variant(std::in_place_index_t<TInd>, auto&&... args) noexcept(std::is_nothrow_constructible_v<Types...[TInd], decltype(args)...>)
+  constexpr Variant(std::in_place_index_t<TInd>, auto&&... args) noexcept(std::is_nothrow_constructible_v<IthT<TInd>, decltype(args)...>)
     : data_(std::in_place_index<TInd>, std::forward<decltype(args)>(args)...),
       cur_type_ind_(TInd) {}
 
@@ -121,6 +122,11 @@ public:
   template <typename T>
   constexpr auto &&Get(this auto &&self) {
     return fwd(self).data_.template Get<T>();
+  }
+
+  template <size_t TInd>
+  constexpr auto &&Get(this auto &&self) {
+    return fwd(self).template Get<IthT<TInd>>();
   }
 
   template<typename T>
@@ -199,36 +205,49 @@ template<typename T>
 constexpr size_t VariantSz = [] <typename... Ts> (std::type_identity<Variant<Ts...>>) { return sizeof...(Ts); } (std::type_identity<T>{});
 
 template<typename... Ts>
-consteval std::array<std::array<size_t, sizeof...(Ts)>, (VariantSz<Ts> * ...)>  GetArrOfIndsArrs() {
-  std::array<std::array<size_t, sizeof...(Ts)>, (VariantSz<Ts> * ...)> ans;
-  static constexpr std::array<size_t, sizeof...(Ts)> szs{ VariantSz<Ts>... };
-  std::ranges::fill(ans[0], 0);
-  for (size_t cur_ind = 1; cur_ind < szs.size(); ++cur_ind) {
+consteval auto GetArrOfIndsArrs() {
+  std::array<std::array<size_t, sizeof...(Ts)>, (VariantSz<Ts> * ...)> ans{};
+  std::array<size_t, sizeof...(Ts)> szs{ VariantSz<Ts>... };
+  for (size_t cur_ind = 1; cur_ind < ans.size(); ++cur_ind) {
     ans[cur_ind] = ans[cur_ind - 1];
     for (size_t i = 0, carry = 1; carry > 0; ++i) {
+      if (i >= ans[cur_ind].size()) {
+        throw std::logic_error(__PRETTY_FUNCTION__);
+      }
       size_t buf = ans[cur_ind][i] + carry;
       carry = buf / szs[i];
       ans[cur_ind][i] = buf % szs[i];
     }
   }
-  return ans;
+  std::array<std::tuple<std::conditional_t<true, size_t, Ts>...>, ans.size()> ans_tr{};
+  for (size_t i = 0; i < ans.size(); ++i) {
+    ans_tr[i] = [&ansi = ans[i]] <size_t... Inds> (std::index_sequence<Inds...>) {
+      return std::tuple(ansi[Inds]...);
+    } (std::make_index_sequence<sizeof...(Ts)>{});
+  }
+  return ans_tr;
 }
+
 
 constexpr decltype(auto) Visit(auto &&vis, auto &&...var) {
   if ((var.ValuelessByException() || ...)) {
     throw std::bad_variant_access();
   }
   static constexpr auto case_arr = GetArrOfIndsArrs<std::remove_cvref_t<decltype(var)>...>();
-  std::array<size_t, sizeof...(var)> inds = { var.index()... };
-  return [] <size_t... Inds> (std::index_sequence<Inds...>, auto &inds, auto &&vis, auto&&... var) static {
-    ([] <size_t Ind> (std::integral_constant<size_t, Ind>, auto &inds, auto &&vis, auto&&... var) static {
-      if (inds == case_arr[Ind]) {
-        return [] <size_t... VarInds> (std::index_sequence<VarInds...>, auto &&vis, auto&&... var) static {
-          return vis(fwd(var).template Get<VariantAlternative<case_arr[Inds][VarInds], std::remove_cvref_t<decltype(var)>>>()...);
-        } (std::make_index_sequence<sizeof...(var)>{}, fwd(vis), fwd(var)...);
+  auto inds = std::tuple(var.index()...);
+  return [] <size_t Ind> (this auto self, std::integral_constant<size_t, Ind>, auto &inds, auto &&vis, auto&&... var) {
+    if (inds == case_arr[Ind]) {
+      return [] <size_t... VarInds> (std::index_sequence<VarInds...>, auto &&vis, auto&&... var) static {
+        return vis(fwd(var).template Get<std::get<VarInds>(case_arr[Ind])>()...);
+      } (std::make_index_sequence<sizeof...(var)>{}, fwd(vis), fwd(var)...);
+    } else {
+      if constexpr (Ind + 1 >= case_arr.size()) {
+        std::terminate();
+      } else {
+        return self(std::integral_constant<size_t, Ind + 1>{}, inds, fwd(vis), fwd(var)...);
       }
-    } (std::integral_constant<size_t, Inds>{}, inds, fwd(vis), fwd(var)...), ...);
-  } (std::make_index_sequence<case_arr.size()>{}, inds, fwd(vis), fwd(var)...);
+    }
+  } (std::integral_constant<size_t, 0>{}, inds, fwd(vis), fwd(var)...);
 }
 
 template <typename... Types>

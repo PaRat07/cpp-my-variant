@@ -1,4 +1,4 @@
-constexpr int kVariantSize = 30;
+constexpr int kVariantSize = 8;
 
 #include "somevisit.h"
 #include <array>
@@ -10,7 +10,7 @@ constexpr int kVariantSize = 30;
 #include <chrono>
 
 #include "my-visit.h"
-#include <print>
+#include <iostream>
 // #include "my-variant.h"
 
 using namespace std;
@@ -41,7 +41,7 @@ int main() {
         }, var);
       }
       auto end = std::chrono::steady_clock::now();
-      std::println("std::visit: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(end - beg).count());
+      std::cout << std::format("std::visit: {}ms\n", std::chrono::duration_cast<std::chrono::milliseconds>(end - beg).count());
     }
     {
       VarT var;
@@ -53,9 +53,21 @@ int main() {
         }, var);
       }
       auto end = std::chrono::steady_clock::now();
-      std::println("rollbear::visit: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(end - beg).count());
+      std::cout << std::format("rollbear::visit: {}ms\n", std::chrono::duration_cast<std::chrono::milliseconds>(end - beg).count());
     }
-    {
+      {
+      VarT var;
+      auto beg = std::chrono::steady_clock::now();
+      for (auto _ : std::views::iota(0, 10'000'000)) {
+        var = kActI<std::integral_constant<size_t, Inds>...>[rand() % sizeof...(Inds)];
+        noopt += VisitWithUnreachable(overloaded{
+          [] (std::integral_constant<size_t, Inds>) { return Inds; }...
+        }, var);
+      }
+      auto end = std::chrono::steady_clock::now();
+      std::cout << std::format("VisitWithUnreachable: {}ms\n", std::chrono::duration_cast<std::chrono::milliseconds>(end - beg).count());
+      }
+      {
       VarT var;
       auto beg = std::chrono::steady_clock::now();
       for (auto _ : std::views::iota(0, 10'000'000)) {
@@ -65,7 +77,7 @@ int main() {
         }, var);
       }
       auto end = std::chrono::steady_clock::now();
-      std::println("Visit: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(end - beg).count());
-    }
+      std::cout << std::format("Visit: {}ms\n", std::chrono::duration_cast<std::chrono::milliseconds>(end - beg).count());
+      }
   } (std::make_index_sequence<kVariantSize>{});
 }

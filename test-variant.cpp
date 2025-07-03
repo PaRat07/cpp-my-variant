@@ -39,10 +39,6 @@ consteval void TestVisit() {
 consteval void TestLogic() {
 
 }
-namespace test {
-    struct T{};
-    void swap(T&, T&);
-}
 
 int main() {
     TestVisit();
