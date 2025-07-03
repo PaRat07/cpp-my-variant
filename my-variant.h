@@ -78,6 +78,14 @@ struct IthType<0, Need, Other...> : std::type_identity<Need> {};
 template<size_t Ind, typename Sep, typename... Other>
 struct IthType<Ind, Sep, Other...> : IthType<Ind - 1, Other...> {};
 
+
+template<typename T, template<typename...> typename Templ>
+constexpr bool IsInstanceOf = std::is_invocable_v<decltype([] <class... Ts> (std::type_identity<Templ<Ts...>>){}), std::type_identity<std::remove_cvref_t<T>>>;
+
+
+template<typename T, template<auto...> typename Templ>
+constexpr bool IsInstanceOfWithVals = std::is_invocable_v<decltype([] <auto... Ts> (std::type_identity<Templ<Ts...>>){}), std::type_identity<std::remove_cvref_t<T>>>;
+
 template <typename... Types>
 class Variant {
 public:
@@ -102,6 +110,19 @@ private:
   template<size_t TInd>
   using IthT = typename IthType<TInd, Types...>::type;
 
+  template<typename T>
+  static constexpr index_t kInitInd = [] <size_t... Inds> (std::index_sequence<Inds...>) {
+    if ((std::is_constructible_v<Types, T> + ...) != 1) {
+      return npos;
+    }
+    index_t ans = npos;
+    ([&ans] <size_t Ind> (std::integral_constant<size_t, Ind>) {
+      ++ans;
+      return std::is_constructible_v<IthT<Ind>, T&&>;
+    } (std::integral_constant<size_t, Inds>{}) ||  ...);
+    return ans;
+  } (std::make_index_sequence<sizeof...(Types)>{});
+
 public:
   template<template<typename> typename Trait>
   static constexpr bool kIsAll = (Trait<Types>::value && ...);
@@ -112,8 +133,13 @@ public:
       cur_type_ind_(TInd) {}
 
   template<typename T>
-  constexpr Variant(std::type_identity<T>, auto&&... args) noexcept(std::is_nothrow_constructible_v<T, decltype(args)...>)
+  constexpr Variant(std::in_place_type_t<T>, auto&&... args) noexcept(std::is_nothrow_constructible_v<T, decltype(args)...>)
     : Variant(std::in_place_index<FindType<T>()>, std::forward<decltype(args)>(args)...) {}
+
+  template<typename T> requires (sizeof...(Types) > 0 && !IsInstanceOf<T, Variant> && kInitInd<T> != npos && !IsInstanceOf<T, std::in_place_type_t> && !IsInstanceOfWithVals<T, std::in_place_index_t>)
+  constexpr Variant(T&& val)
+    : Variant(std::in_place_index<kInitInd<T>>, fwd(val)) {
+  }
 
   constexpr Variant() : Variant(std::in_place_index<0>) {}
 
